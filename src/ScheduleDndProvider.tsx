@@ -1,7 +1,7 @@
 import { DndContext, Modifier, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { PropsWithChildren } from "react";
+import { PropsWithChildren, useCallback } from "react";
 import { CellSize, DAY_LABELS } from "./constants.ts";
-import { useScheduleContext } from "./ScheduleContext.tsx";
+import { useScheduleWrite } from "./ScheduleContext.tsx";
 
 function createSnapModifier(): Modifier {
   return ({ transform, containerNodeRect, draggingNodeRect }) => {
@@ -17,7 +17,6 @@ function createSnapModifier(): Modifier {
     const maxX = containerRight - right;
     const maxY = containerBottom - bottom;
 
-
     return ({
       ...transform,
       x: Math.min(Math.max(Math.round(transform.x / CellSize.WIDTH) * CellSize.WIDTH, minX), maxX),
@@ -28,8 +27,14 @@ function createSnapModifier(): Modifier {
 
 const modifiers = [createSnapModifier()]
 
-export default function ScheduleDndProvider({ children }: PropsWithChildren) {
-  const { schedulesMap, setSchedulesMap } = useScheduleContext();
+interface Props extends PropsWithChildren {
+  tableId: string;
+}
+
+export default function ScheduleDndProvider({ tableId, children }: Props) {
+  // Context 격리: 쓰기 전용 Context만 사용
+  const { updateSchedulePosition } = useScheduleWrite();
+  
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -39,29 +44,32 @@ export default function ScheduleDndProvider({ children }: PropsWithChildren) {
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleDragEnd = (event: any) => {
+  const handleDragEnd = useCallback((event: any) => {
     const { active, delta } = event;
     const { x, y } = delta;
-    const [tableId, index] = active.id.split(':');
-    const schedule = schedulesMap[tableId][index];
-    const nowDayIndex = DAY_LABELS.indexOf(schedule.day as typeof DAY_LABELS[number])
-    const moveDayIndex = Math.floor(x / 80);
-    const moveTimeIndex = Math.floor(y / 30);
+    const [draggedTableId, index] = active.id.split(':');
+    
+    // 현재 테이블의 드래그만 처리
+    if (draggedTableId !== tableId) {
+      return;
+    }
+    
+    const nowDayIndex = DAY_LABELS.indexOf(active.data.current?.day as typeof DAY_LABELS[number])
+    const moveDayIndex = Math.floor(x / CellSize.WIDTH);
+    const moveTimeIndex = Math.floor(y / CellSize.HEIGHT);
+    const newDayIndex = nowDayIndex + moveDayIndex;
+    
+    // 유효한 범위 체크
+    if (newDayIndex < 0 || newDayIndex >= DAY_LABELS.length) {
+      return;
+    }
 
-    setSchedulesMap({
-      ...schedulesMap,
-      [tableId]: schedulesMap[tableId].map((targetSchedule, targetIndex) => {
-        if (targetIndex !== Number(index)) {
-          return { ...targetSchedule }
-        }
-        return {
-          ...targetSchedule,
-          day: DAY_LABELS[nowDayIndex + moveDayIndex],
-          range: targetSchedule.range.map(time => time + moveTimeIndex),
-        }
-      })
-    })
-  };
+    const newDay = DAY_LABELS[newDayIndex];
+    const timeOffset = moveTimeIndex;
+
+    // Context의 업데이트 함수 사용
+    updateSchedulePosition(tableId, Number(index), newDay, timeOffset);
+  }, [tableId, updateSchedulePosition]);
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd} modifiers={modifiers}>
