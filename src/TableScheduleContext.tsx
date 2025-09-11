@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo, useCallback, PropsWithChildren } from "react";
+import { createContext, useContext, useState, useMemo, useCallback, PropsWithChildren } from "react";
 import { Schedule } from "./types.ts";
 
 interface TableScheduleContextType {

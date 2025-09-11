@@ -33,7 +33,7 @@ import { useScheduleWrite } from "./ScheduleContext.tsx";  // 쓰기 전용 Cont
 import { Lecture } from "./types.ts";
 import { parseSchedule } from "./utils.ts";
 import axios from "axios";
-import { DAY_LABELS } from "./constants.ts";
+import { DAY_LABELS, API_BASE_URL } from "./constants.ts";
 
 // Props 최적화: Reference Value → Primitive Value 변경
 interface Props {
@@ -110,7 +110,7 @@ const fetchMajors = () => {
     return cached.promise;
   }
   
-  const promise = axios.get<Lecture[]>('/schedules-majors.json');
+  const promise = axios.get<Lecture[]>(`${API_BASE_URL}/schedules-majors.json`);
   
   // 캐시에 저장
   cache.set(cacheKey, { 
@@ -119,10 +119,10 @@ const fetchMajors = () => {
   });
   
   // 완료 후 데이터도 저장
-  promise.then(data => {
+  promise.then(result => {
     const entry = cache.get(cacheKey);
     if (entry) {
-      entry.data = data;
+      entry.data = result.data;
     }
   });
   
@@ -139,7 +139,7 @@ const fetchLiberalArts = () => {
     return cached.promise;
   }
   
-  const promise = axios.get<Lecture[]>('/schedules-liberal-arts.json');
+  const promise = axios.get<Lecture[]>(`${API_BASE_URL}/schedules-liberal-arts.json`);
   
   // 캐시에 저장
   cache.set(cacheKey, { 
@@ -148,10 +148,10 @@ const fetchLiberalArts = () => {
   });
   
   // 완료 후 데이터도 저장
-  promise.then(data => {
+  promise.then(result => {
     const entry = cache.get(cacheKey);
     if (entry) {
-      entry.data = data;
+      entry.data = result.data;
     }
   });
   
