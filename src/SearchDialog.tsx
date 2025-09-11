@@ -82,40 +82,107 @@ const TIME_SLOTS = [
 
 const PAGE_SIZE = 100;
 
-// API 캐시 저장소
-const apiCache = new Map<string, Promise<any>>();
+// 전역 캐시 - window 객체에 저장하여 모듈 재로드에도 유지
+declare global {
+  interface Window {
+    lectureApiCache?: Map<string, { 
+      promise: Promise<any>, 
+      timestamp: number,
+      data?: any 
+    }>;
+  }
+}
+
+// 캐시 초기화
+if (typeof window !== 'undefined' && !window.lectureApiCache) {
+  window.lectureApiCache = new Map();
+}
+
+const getCache = () => window.lectureApiCache || new Map();
 
 const fetchMajors = () => {
+  const cache = getCache();
   const cacheKey = 'schedules-majors';
-  if (apiCache.has(cacheKey)) {
-    return apiCache.get(cacheKey)!;
+  const now = performance.now();
+  
+  // 캐시 확인
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    return cached.promise;
   }
   
   const promise = axios.get<Lecture[]>('/schedules-majors.json');
-  apiCache.set(cacheKey, promise);
+  
+  // 캐시에 저장
+  cache.set(cacheKey, { 
+    promise, 
+    timestamp: now 
+  });
+  
+  // 완료 후 데이터도 저장
+  promise.then(data => {
+    const entry = cache.get(cacheKey);
+    if (entry) {
+      entry.data = data;
+    }
+  });
+  
   return promise;
 };
 
 const fetchLiberalArts = () => {
+  const cache = getCache();
   const cacheKey = 'schedules-liberal-arts';
-  if (apiCache.has(cacheKey)) {
-    return apiCache.get(cacheKey)!;
+  const now = performance.now();
+  
+  // 캐시 확인
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    return cached.promise;
   }
   
   const promise = axios.get<Lecture[]>('/schedules-liberal-arts.json');
-  apiCache.set(cacheKey, promise);
+  
+  // 캐시에 저장
+  cache.set(cacheKey, { 
+    promise, 
+    timestamp: now 
+  });
+  
+  // 완료 후 데이터도 저장
+  promise.then(data => {
+    const entry = cache.get(cacheKey);
+    if (entry) {
+      entry.data = data;
+    }
+  });
+  
   return promise;
 };
 
 // 6번 API 호출을 유지하되 캐싱으로 처리
-const fetchAllLectures = async () => await Promise.all([
-  (console.log('API Call 1', performance.now()), await fetchMajors()),
-  (console.log('API Call 2', performance.now()), await fetchLiberalArts()),
-  (console.log('API Call 3', performance.now()), await fetchMajors()),
-  (console.log('API Call 4', performance.now()), await fetchLiberalArts()),
-  (console.log('API Call 5', performance.now()), await fetchMajors()),
-  (console.log('API Call 6', performance.now()), await fetchLiberalArts()),
-]);
+const fetchAllLectures = async () => {
+  console.log('=== fetchAllLectures 시작 ===');
+  const results = await Promise.all([
+    (console.log('API Call 1', performance.now()), await fetchMajors()),
+    (console.log('API Call 2', performance.now()), await fetchLiberalArts()),
+    (console.log('API Call 3', performance.now()), await fetchMajors()),
+    (console.log('API Call 4', performance.now()), await fetchLiberalArts()),
+    (console.log('API Call 5', performance.now()), await fetchMajors()),
+    (console.log('API Call 6', performance.now()), await fetchLiberalArts()),
+  ]);
+  console.log('=== fetchAllLectures 완료 ===');
+  
+  // 캐시 상태 출력
+  const cache = getCache();
+  console.log('캐시 상태:', {
+    'schedules-majors': cache.has('schedules-majors') ? '캐시됨' : '없음',
+    'schedules-liberal-arts': cache.has('schedules-liberal-arts') ? '캐시됨' : '없음',
+    'total cache size': cache.size
+  });
+  
+  return results;
+};
 
 // React.memo로 최적화된 개별 컴포넌트들
 const SearchInput = memo(({ value, onChange }: { value: string, onChange: (value: string) => void }) => (
