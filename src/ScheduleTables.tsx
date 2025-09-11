@@ -1,11 +1,14 @@
 import { Button, ButtonGroup, Flex, Heading, Stack } from "@chakra-ui/react";
 import ScheduleTable from "./ScheduleTable.tsx";
-import { useScheduleContext } from "./ScheduleContext.tsx";
+import { useScheduleRead, useScheduleWrite } from "./ScheduleContext.tsx";
 import SearchDialog from "./SearchDialog.tsx";
+import ScheduleDndProvider from "./ScheduleDndProvider.tsx";
 import { useState } from "react";
 
 export const ScheduleTables = () => {
-  const { schedulesMap, setSchedulesMap } = useScheduleContext();
+  // Context 격리: 읽기와 쓰기를 분리하여 필요한 부분만 구독
+  const { schedulesMap } = useScheduleRead();
+  const { duplicateTable, removeTable, removeSchedule } = useScheduleWrite();
   const [searchInfo, setSearchInfo] = useState<{
     tableId: string;
     day?: string;
@@ -15,17 +18,11 @@ export const ScheduleTables = () => {
   const disabledRemoveButton = Object.keys(schedulesMap).length === 1;
 
   const duplicate = (targetId: string) => {
-    setSchedulesMap(prev => ({
-      ...prev,
-      [`schedule-${Date.now()}`]: [...prev[targetId]]
-    }))
+    duplicateTable(targetId);
   };
 
   const remove = (targetId: string) => {
-    setSchedulesMap(prev => {
-      delete prev[targetId];
-      return { ...prev };
-    })
+    removeTable(targetId);
   };
 
   return (
@@ -42,16 +39,16 @@ export const ScheduleTables = () => {
                         onClick={() => remove(tableId)}>삭제</Button>
               </ButtonGroup>
             </Flex>
-            <ScheduleTable
-              key={`schedule-table-${index}`}
-              schedules={schedules}
-              tableId={tableId}
-              onScheduleTimeClick={(timeInfo) => setSearchInfo({ tableId, ...timeInfo })}
-              onDeleteButtonClick={({ day, time }) => setSchedulesMap((prev) => ({
-                ...prev,
-                [tableId]: prev[tableId].filter(schedule => schedule.day !== day || !schedule.range.includes(time))
-              }))}
-            />
+            {/* Context 격리: 각 시간표마다 독립적인 DndProvider 적용 */}
+            <ScheduleDndProvider tableId={tableId}>
+              <ScheduleTable
+                key={`schedule-table-${index}`}
+                schedules={schedules}
+                tableId={tableId}
+                onScheduleTimeClick={(timeInfo) => setSearchInfo({ tableId, ...timeInfo })}
+                onDeleteButtonClick={({ day, time }) => removeSchedule(tableId, day, time)}
+              />
+            </ScheduleDndProvider>
           </Stack>
         ))}
       </Flex>
@@ -64,4 +61,4 @@ export const ScheduleTables = () => {
       />
     </>
   );
-}
+};

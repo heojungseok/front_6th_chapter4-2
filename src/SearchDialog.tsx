@@ -29,7 +29,7 @@ import {
   VStack,
   Wrap,
 } from "@chakra-ui/react";
-import { useScheduleContext } from "./ScheduleContext.tsx";
+import { useScheduleWrite } from "./ScheduleContext.tsx";  // 쓰기 전용 Context만 사용
 import { Lecture } from "./types.ts";
 import { parseSchedule } from "./utils.ts";
 import axios from "axios";
@@ -103,7 +103,6 @@ const getCache = () => window.lectureApiCache || new Map();
 const fetchMajors = () => {
   const cache = getCache();
   const cacheKey = 'schedules-majors';
-  const now = performance.now();
   
   // 캐시 확인
   const cached = cache.get(cacheKey);
@@ -116,7 +115,7 @@ const fetchMajors = () => {
   // 캐시에 저장
   cache.set(cacheKey, { 
     promise, 
-    timestamp: now 
+    timestamp: performance.now() 
   });
   
   // 완료 후 데이터도 저장
@@ -133,7 +132,6 @@ const fetchMajors = () => {
 const fetchLiberalArts = () => {
   const cache = getCache();
   const cacheKey = 'schedules-liberal-arts';
-  const now = performance.now();
   
   // 캐시 확인
   const cached = cache.get(cacheKey);
@@ -146,7 +144,7 @@ const fetchLiberalArts = () => {
   // 캐시에 저장
   cache.set(cacheKey, { 
     promise, 
-    timestamp: now 
+    timestamp: performance.now() 
   });
   
   // 완료 후 데이터도 저장
@@ -340,7 +338,8 @@ const LectureRow = memo(({ lecture, index, onAddSchedule }: {
 );
 
 const SearchDialog = ({ isOpen, tableId, day, time, onClose }: Props) => {
-  const { setSchedulesMap } = useScheduleContext();
+  // Context 격리: 쓰기 전용 Context만 사용하여 불필요한 리렌더링 방지
+  const { addSchedule: addScheduleToContext } = useScheduleWrite();
 
   const loaderWrapperRef = useRef<HTMLDivElement>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
@@ -398,13 +397,10 @@ const SearchDialog = ({ isOpen, tableId, day, time, onClose }: Props) => {
       lecture
     }));
 
-    setSchedulesMap(prev => ({
-      ...prev,
-      [tableId]: [...prev[tableId], ...schedules]
-    }));
-
+    // Context 격리된 함수 사용
+    addScheduleToContext(tableId, schedules);
     onClose();
-  }, [tableId, setSchedulesMap, onClose]);
+  }, [tableId, addScheduleToContext, onClose]);
 
   // 개별 핸들러들을 useCallback으로 최적화
   const handleQueryChange = useCallback((value: string) => changeSearchOption('query', value), [changeSearchOption]);

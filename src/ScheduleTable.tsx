@@ -136,7 +136,10 @@ const DraggableSchedule = ({
   onDeleteButtonClick: () => void
 }) => {
   const { day, range, room, lecture } = data;
-  const { attributes, setNodeRef, listeners, transform } = useDraggable({ id });
+  const { attributes, setNodeRef, listeners, transform } = useDraggable({ 
+    id,
+    data: { day, range, lecture } // 드래그 데이터 추가
+  });
   const leftIndex = DAY_LABELS.indexOf(day as typeof DAY_LABELS[number]);
   const topIndex = range[0] - 1;
   const size = range.length;
