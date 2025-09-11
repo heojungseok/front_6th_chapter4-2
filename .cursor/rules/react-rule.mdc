@@ -1,0 +1,128 @@
+---
+description: React Performance Optimization
+globs:
+alwaysApply: true
+---
+React 컴포넌트 리렌더링 최적화 가이드
+React 애플리케이션의 성능을 향상시키기 위한 컴포넌트 리렌더링 최적화 방법들을 정리했습니다.
+1. Props 최적화
+Reference Value → Primitive Value로 변경
+객체나 배열 대신 원시값을 props로 전달하여 불필요한 참조 변경으로 인한 리렌더링을 방지합니다.
+javascript// ❌ Before: Reference Value
+<UserProfile user={{ name: 'John', age: 30 }} />
+
+// ✅ After: Primitive Values
+<UserProfile userName="John" userAge={30} />
+2. React.memo 최적화
+propsAreEqual 함수 활용
+React.memo의 두 번째 인자로 커스텀 비교 함수를 제공하여 정밀한 렌더링 제어가 가능합니다.
+javascriptconst MyComponent = React.memo(Component, (prevProps, nextProps) => {
+  // 특정 props만 비교
+  return prevProps.id === nextProps.id && 
+         prevProps.status === nextProps.status;
+});
+
+// 깊은 비교가 필요한 경우
+const DeepComponent = React.memo(Component, (prevProps, nextProps) => {
+  return JSON.stringify(prevProps.data) === JSON.stringify(nextProps.data);
+});
+3. Context 격리
+useContext 범위 제한
+Context Provider를 적절히 분리하여 영향 범위를 최소화하고, 가장 가까운 Provider를 참조하는 특성을 활용합니다.
+javascript// ❌ Before: 전체 앱에 영향
+<GlobalContext.Provider>
+  <EntireApp />
+</GlobalContext.Provider>
+
+// ✅ After: 필요한 부분만 격리
+<GlobalContext.Provider>
+  <Header />
+  <UserContext.Provider>
+    <UserSection />  {/* UserContext만 영향받음 */}
+  </UserContext.Provider>
+  <Footer />
+</GlobalContext.Provider>
+4. Computed Value 최적화
+연산 복잡도 개선
+시간복잡도가 높은 computed value 연산을 최적화하여 성능을 향상시킵니다.
+javascript// ❌ Before: 매번 복잡한 연산
+const ExpensiveComponent = ({ data }) => {
+  const result = data.map(item => 
+    heavyComputation(item)  // O(n²) 복잡도
+  ).filter(item => item.valid);
+  
+  return <div>{result}</div>;
+};
+
+// ✅ After: useMemo로 메모이제이션
+const OptimizedComponent = ({ data }) => {
+  const result = useMemo(() => {
+    return data
+      .map(item => heavyComputation(item))
+      .filter(item => item.valid);
+  }, [data]);
+  
+  return <div>{result}</div>;
+};
+
+// ✅ 알고리즘 개선
+const AlgorithmOptimized = ({ data }) => {
+  const result = useMemo(() => {
+    // O(n) 복잡도로 개선
+    return data.reduce((acc, item) => {
+      const computed = heavyComputation(item);
+      if (computed.valid) acc.push(computed);
+      return acc;
+    }, []);
+  }, [data]);
+  
+  return <div>{result}</div>;
+};
+5. Native Element 활용
+React Component → Native Element
+단순 스타일링만 담당하는 컴포넌트는 native HTML 요소를 사용하여 createElement + 함수 호출 오버헤드를 제거합니다.
+javascript// ❌ Before: React Component
+const StyledDiv = ({ children, className }) => (
+  <div className={`base-style ${className}`}>
+    {children}
+  </div>
+);
+
+const StyledButton = ({ onClick, children }) => (
+  <button className="btn-primary" onClick={onClick}>
+    {children}
+  </button>
+);
+
+// 사용
+<StyledDiv className="custom">
+  <StyledButton onClick={handleClick}>Click me</StyledButton>
+</StyledDiv>
+
+// ✅ After: Native Element
+<div className="base-style custom">
+  <button className="btn-primary" onClick={handleClick}>
+    Click me
+  </button>
+</div>
+성능 측정 및 모니터링
+최적화 효과를 확인하기 위한 도구들:
+javascript// React DevTools Profiler 활용
+import { Profiler } from 'react';
+
+const onRenderCallback = (id, phase, actualDuration) => {
+  console.log('Component:', id, 'Phase:', phase, 'Duration:', actualDuration);
+};
+
+<Profiler id="MyComponent" onRender={onRenderCallback}>
+  <MyComponent />
+</Profiler>
+적용 우선순위
+
+Native Element 전환: 즉시 적용 가능하며 효과가 큰 최적화
+Props 최적화: 구조적 변경이 필요하지만 근본적인 성능 개선
+Computed Value 최적화: 복잡한 연산이 있는 컴포넌트에 집중 적용
+Context 격리: 전역 상태 관리 구조 개선시 적용
+React.memo 세밀 조정: 마지막 단계에서 세부 튜닝
+
+이러한 최적화 방법들을 조합하여 효율적인 React 애플리케이션을 구축할 수 있습니다.
